@@ -4,13 +4,12 @@ build-backend = "setuptools.build_meta"
 package-mode = false
 
 [project]
-name = "telegram-mcp"
-version = "2.0.1"
-description = "Telegram integration for Claude via the Model Context Protocol"
+name = "telegram-mcp-multitenant"
+version = "0.1.0"
+description = "Multitenant Telegram integration for Claude via the Model Context Protocol"
 readme = "README.md"
 authors = [
-    {name = "chigwell"},
-    {name = "l1v0n1"}
+    {name = "Oleg Math", email = "dimatroso@gmail.com"}
 ]
 license = {text = "Apache-2.0"}
 classifiers = [
@@ -33,8 +32,7 @@ dependencies = [
 ]
 
 [project.urls]
-"Homepage" = "https://github.com/chigwell/telegram-mcp"
-"Bug Tracker" = "https://github.com/chigwell/telegram-mcp/issues"
+"Homepage" = "https://github.com/olegische/telegram-mcp-multitenant"
 
 [tool.black]
 line-length = 99

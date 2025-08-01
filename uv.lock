@@ -404,8 +404,8 @@ wheels = [
 ]
 
 [[package]]
-name = "telegram-mcp"
-version = "2.0.1"
+name = "telegram-mcp-multitenant"
+version = "0.1.0"
 source = { editable = "." }
 dependencies = [
     { name = "dotenv" },
