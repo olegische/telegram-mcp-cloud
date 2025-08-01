@@ -3,7 +3,7 @@ from mcp.server.fastmcp import FastMCP
 from telethon import TelegramClient
 
 # Import tool implementation functions
-from tools import (
+from .tools import (
     chat_management,
     messaging,
     contact_management,
@@ -13,7 +13,7 @@ from tools import (
     stickers_gifs_bots,
     privacy_settings_misc,
 )
-from config import get_config
+from .config import get_config
 from telethon.sessions import StringSession
 
 logger = logging.getLogger("telegram_mcp")

@@ -1,0 +1,42 @@
+# Git and Docker
+.git
+.gitignore
+.dockerignore
+Dockerfile
+docker-compose.yml
+
+# Python virtual environment
+.venv
+env/
+venv/
+ENV/
+
+# Python cache
+__pycache__/
+*.py[cod]
+.ruff_cache/
+.pytest_cache/
+.mypy_cache/
+
+# Local development files
+.env
+*.session
+*.session-journal
+mcp_errors.log
+telegram_test.log
+
+# IDE / Editor specific
+.idea/
+.vscode/
+*.swp
+
+# OS specific
+.DS_Store
+
+# Build artifacts
+build/
+dist/
+*.egg-info/
+
+# Security
+secrets/

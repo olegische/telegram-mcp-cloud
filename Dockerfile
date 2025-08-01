@@ -1,47 +1,69 @@
-# Use an official Python runtime as a parent image (Alpine-based for minimal vulnerabilities)
-FROM python:3.13-alpine
+# Use a Python image with uv pre-installed
+FROM ghcr.io/astral-sh/uv:python3.13-bookworm-slim AS builder
 
-# Set the working directory in the container
+# Install the project into `/app`
 WORKDIR /app
 
-# Prevent Python from writing pyc files to disc
-ENV PYTHONDONTWRITEBYTECODE=1
-# Ensure Python output is sent straight to terminal (useful for logs)
-ENV PYTHONUNBUFFERED=1
+# Enable bytecode compilation for faster startup
+ENV UV_COMPILE_BYTECODE=1
 
-# Install system dependencies if needed (e.g., for certain Python packages)
-# RUN apt-get update && apt-get install -y --no-install-recommends some-package && rm -rf /var/lib/apt/lists/*
+# Copy from the cache instead of linking since it's a mounted volume
+ENV UV_LINK_MODE=copy
 
-# Copy dependency definition files
-# If using Poetry:
-# COPY pyproject.toml poetry.lock* ./
-# RUN pip install --no-cache-dir poetry
-# RUN poetry config virtualenvs.create false && poetry install --no-dev --no-interaction --no-ansi
-# If using pip with requirements.txt:
-COPY requirements.txt ./
-RUN pip install --no-cache-dir --upgrade pip
-RUN pip install --no-cache-dir -r requirements.txt
+# Install the project's dependencies using the lockfile and settings
+# This step is cached and only re-run if the lockfile or pyproject.toml changes
+RUN --mount=type=cache,target=/root/.cache/uv \
+    --mount=type=bind,source=uv.lock,target=uv.lock \
+    --mount=type=bind,source=pyproject.toml,target=pyproject.toml \
+    uv sync --frozen --no-install-project --no-dev --no-editable
 
-# Copy the rest of the application code
-COPY main.py .
-# COPY session_string_generator.py . # Optional: if needed within the container, otherwise can be run outside
+# Then, add the rest of the project source code and install it
+# Installing separately from its dependencies allows optimal layer caching
+COPY . /app
+RUN --mount=type=cache,target=/root/.cache/uv \
+    uv sync --frozen --no-dev --no-editable
 
-# Create a non-root user and switch to it
-RUN adduser --disabled-password --gecos "" appuser && chown -R appuser:appuser /app
-USER appuser
+# Clean up the virtual environment to reduce image size
+RUN find /app/.venv -name '__pycache__' -type d -exec rm -rf {} + && \
+    find /app/.venv -name '*.pyc' -delete && \
+    find /app/.venv -name '*.pyo' -delete && \
+    find /app/.venv -name '*.pyd' -delete && \
+    find /app/.venv -name 'test*' -type d -exec rm -rf {} + && \
+    echo "Cleaned up .venv"
 
-# Define environment variables needed by the application
-# These should be provided at runtime, not hardcoded (especially secrets)
-ENV TELEGRAM_API_ID=""
-ENV TELEGRAM_API_HASH=""
-# Specify one of the following at runtime:
-# Default session filename
-ENV TELEGRAM_SESSION_NAME="telegram_mcp_session"
-# Or provide the session string directly
-ENV TELEGRAM_SESSION_STRING=""
+# --- Final Stage ---
+# Use a slim image for a smaller final size
+FROM python:3.13-slim-bookworm
 
-# Expose any ports if the application were a web server (not needed for stdio MCP)
-# EXPOSE 8000
+# Install git for potential dependencies that might need it during runtime
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends git && \
+    rm -rf /var/lib/apt/lists/* && \
+    apt-get clean
 
-# Define the command to run the application
-CMD ["python", "main.py"] 
+# Create a non-root user for security
+RUN groupadd -r app && useradd -r -g app -d /home/app -s /bin/bash -c "App user" app && \
+    mkdir -p /home/app && \
+    chown -R app:app /home/app
+
+# Set working directory
+WORKDIR /app
+
+# Copy the virtual environment from the builder stage
+COPY --from=builder --chown=app:app /app/.venv /app/.venv
+
+# Copy the application source code
+COPY --from=builder --chown=app:app /app/src /app/src
+
+# Place the virtual environment's executables at the front of the PATH
+ENV PATH="/app/.venv/bin:$PATH"
+# Set PYTHONPATH so that imports from /app work correctly
+ENV PYTHONPATH=/app
+
+# Switch to the non-root user
+USER app
+
+# Run the MCP server using its main entrypoint as a module
+# This ensures the environment (e.g., from .env file if mounted) is set up correctly.
+# The .env file itself should be provided at runtime, not baked into the image.
+CMD ["python", "-m", "src.telegram_mcp.main"]

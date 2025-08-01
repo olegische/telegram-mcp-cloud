@@ -11,7 +11,7 @@ from telethon.tl.types import (
     InputPeerNotifySettings,
 )
 
-from config import log_and_format_error
+from ..config import log_and_format_error
 
 
 logger = logging.getLogger("telegram_mcp")
