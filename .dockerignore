@@ -20,6 +20,7 @@ __pycache__/
 
 # Local development files
 .env
+.env.prod
 *.session
 *.session-journal
 mcp_errors.log

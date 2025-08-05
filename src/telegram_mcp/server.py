@@ -1,5 +1,5 @@
 import logging
-from mcp.server.fastmcp import FastMCP
+from mcp.server.fastmcp import FastMCP, Context
 from telethon import TelegramClient
 
 # Import tool implementation functions
@@ -13,33 +13,25 @@ from .tools import (
     stickers_gifs_bots,
     privacy_settings_misc,
 )
-from .config import get_config
-from telethon.sessions import StringSession
+from .config import ServiceConfig
+from .dependencies import get_telegram_client
 
 logger = logging.getLogger("telegram_mcp")
 
 
-class CustomFastMCP(FastMCP):
-    """Custom FastMCP server instance to hold the Telegram client."""
-
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.client: TelegramClient = None
-
-
-def build_server() -> CustomFastMCP:
+def build_server() -> FastMCP:
     """Build and configure the FastMCP server instance.
 
     Returns:
-        A configured CustomFastMCP instance.
+        A configured FastMCP instance.
     """
     logger.info("Initializing FastMCP server")
-    config = get_config()
+    config = ServiceConfig()
 
     if config.MCP_TRANSPORT == "stdio":
-        return CustomFastMCP("telegram")
+        return FastMCP("telegram")
     else:
-        return CustomFastMCP(
+        return FastMCP(
             "telegram",
             host=config.MCP_HOST,
             port=config.MCP_PORT,
@@ -50,23 +42,15 @@ def build_server() -> CustomFastMCP:
 mcp_server = build_server()
 
 
-async def get_client():
-    """Creates and connects a Telegram client for a single request."""
-    config = get_config()
-    client = TelegramClient(
-        StringSession(config.SESSION_STRING),
-        config.TELEGRAM_API_ID,
-        config.TELEGRAM_API_HASH,
-    )
-    await client.connect()
-    return client
-
-
 # --- Tool Definitions ---
 
 
 @mcp_server.tool()
-async def get_chats(page: int = 1, page_size: int = 20) -> str:
+async def get_chats(
+    context: Context, 
+    page: int = 1, 
+    page_size: int = 20
+) -> str:
     """
     Get a paginated list of chats.
 
@@ -77,15 +61,16 @@ async def get_chats(page: int = 1, page_size: int = 20) -> str:
     Returns:
         A string containing the list of chats with their IDs and titles.
     """
-    client = await get_client()
-    try:
+    async with get_telegram_client(context) as client:
         return await chat_management.get_chats(client, page, page_size)
-    finally:
-        await client.disconnect()
 
 
 @mcp_server.tool()
-async def list_chats(chat_type: str = None, limit: int = 20) -> str:
+async def list_chats(
+    context: Context,
+    chat_type: str = None,
+    limit: int = 20,
+) -> str:
     """
     List available chats with metadata.
 
@@ -96,15 +81,14 @@ async def list_chats(chat_type: str = None, limit: int = 20) -> str:
     Returns:
         A string containing the list of chats with their metadata.
     """
-    client = await get_client()
-    try:
+    async with get_telegram_client(context) as client:
         return await chat_management.list_chats(client, chat_type, limit)
-    finally:
-        await client.disconnect()
 
 
 @mcp_server.tool()
-async def get_chat(chat_id: int) -> str:
+async def get_chat(
+    chat_id: int, context: Context
+) -> str:
     """
     Get detailed information about a specific chat.
 
@@ -114,15 +98,14 @@ async def get_chat(chat_id: int) -> str:
     Returns:
         A string containing detailed information about the chat.
     """
-    client = await get_client()
-    try:
+    async with get_telegram_client(context) as client:
         return await chat_management.get_chat(client, chat_id)
-    finally:
-        await client.disconnect()
 
 
 @mcp_server.tool()
-async def create_group(title: str, user_ids: list) -> str:
+async def create_group(
+    title: str, user_ids: list, context: Context
+) -> str:
     """
     Create a new group or supergroup and add users.
 
@@ -133,16 +116,16 @@ async def create_group(title: str, user_ids: list) -> str:
     Returns:
         A string confirming the group creation and its ID.
     """
-    client = await get_client()
-    try:
+    async with get_telegram_client(context) as client:
         return await chat_management.create_group(client, title, user_ids)
-    finally:
-        await client.disconnect()
 
 
 @mcp_server.tool()
 async def create_channel(
-    title: str, about: str = "", megagroup: bool = False
+    context: Context,
+    title: str,
+    about: str = "",
+    megagroup: bool = False,
 ) -> str:
     """
     Create a new channel or supergroup.
@@ -155,17 +138,14 @@ async def create_channel(
     Returns:
         A string confirming the channel creation and its ID.
     """
-    client = await get_client()
-    try:
-        return await chat_management.create_channel(
-            client, title, about, megagroup
-        )
-    finally:
-        await client.disconnect()
+    async with get_telegram_client(context) as client:
+        return await chat_management.create_channel(client, title, about, megagroup)
 
 
 @mcp_server.tool()
-async def edit_chat_title(chat_id: int, title: str) -> str:
+async def edit_chat_title(
+    chat_id: int, title: str, context: Context
+) -> str:
     """
     Edit the title of a chat, group, or channel.
 
@@ -176,15 +156,14 @@ async def edit_chat_title(chat_id: int, title: str) -> str:
     Returns:
         A string confirming the title has been updated.
     """
-    client = await get_client()
-    try:
+    async with get_telegram_client(context) as client:
         return await chat_management.edit_chat_title(client, chat_id, title)
-    finally:
-        await client.disconnect()
 
 
 @mcp_server.tool()
-async def delete_chat_photo(chat_id: int) -> str:
+async def delete_chat_photo(
+    chat_id: int, context: Context
+) -> str:
     """
     Delete the photo of a chat, group, or channel.
 
@@ -194,15 +173,14 @@ async def delete_chat_photo(chat_id: int) -> str:
     Returns:
         A string confirming the photo has been deleted.
     """
-    client = await get_client()
-    try:
+    async with get_telegram_client(context) as client:
         return await chat_management.delete_chat_photo(client, chat_id)
-    finally:
-        await client.disconnect()
 
 
 @mcp_server.tool()
-async def leave_chat(chat_id: int) -> str:
+async def leave_chat(
+    chat_id: int, context: Context
+) -> str:
     """
     Leave a group or channel by chat ID.
 
@@ -212,15 +190,14 @@ async def leave_chat(chat_id: int) -> str:
     Returns:
         A string confirming that you have left the chat.
     """
-    client = await get_client()
-    try:
+    async with get_telegram_client(context) as client:
         return await chat_management.leave_chat(client, chat_id)
-    finally:
-        await client.disconnect()
 
 
 @mcp_server.tool()
-async def get_participants(chat_id: int) -> str:
+async def get_participants(
+    chat_id: int, context: Context
+) -> str:
     """
     List all participants in a group or channel.
 
@@ -230,15 +207,14 @@ async def get_participants(chat_id: int) -> str:
     Returns:
         A string containing the list of participants with their IDs and names.
     """
-    client = await get_client()
-    try:
+    async with get_telegram_client(context) as client:
         return await chat_management.get_participants(client, chat_id)
-    finally:
-        await client.disconnect()
 
 
 @mcp_server.tool()
-async def get_admins(chat_id: int) -> str:
+async def get_admins(
+    chat_id: int, context: Context
+) -> str:
     """
     Get all admins in a group or channel.
 
@@ -248,15 +224,14 @@ async def get_admins(chat_id: int) -> str:
     Returns:
         A string containing the list of admins with their IDs and names.
     """
-    client = await get_client()
-    try:
+    async with get_telegram_client(context) as client:
         return await chat_management.get_admins(client, chat_id)
-    finally:
-        await client.disconnect()
 
 
 @mcp_server.tool()
-async def get_banned_users(chat_id: int) -> str:
+async def get_banned_users(
+    chat_id: int, context: Context
+) -> str:
     """
     Get all banned users in a group or channel.
 
@@ -266,15 +241,17 @@ async def get_banned_users(chat_id: int) -> str:
     Returns:
         A string containing the list of banned users with their IDs and names.
     """
-    client = await get_client()
-    try:
+    async with get_telegram_client(context) as client:
         return await chat_management.get_banned_users(client, chat_id)
-    finally:
-        await client.disconnect()
 
 
 @mcp_server.tool()
-async def promote_admin(group_id: int, user_id: int, rights: dict = None) -> str:
+async def promote_admin(
+    context: Context,
+    group_id: int,
+    user_id: int,
+    rights: dict = None,
+) -> str:
     """
     Promote a user to admin in a group/channel.
 
@@ -286,17 +263,14 @@ async def promote_admin(group_id: int, user_id: int, rights: dict = None) -> str
     Returns:
         A string confirming the promotion of the user.
     """
-    client = await get_client()
-    try:
-        return await chat_management.promote_admin(
-            client, group_id, user_id, rights
-        )
-    finally:
-        await client.disconnect()
+    async with get_telegram_client(context) as client:
+        return await chat_management.promote_admin(client, group_id, user_id, rights)
 
 
 @mcp_server.tool()
-async def demote_admin(group_id: int, user_id: int) -> str:
+async def demote_admin(
+    group_id: int, user_id: int, context: Context
+) -> str:
     """
     Demote a user from admin in a group/channel.
 
@@ -307,15 +281,14 @@ async def demote_admin(group_id: int, user_id: int) -> str:
     Returns:
         A string confirming the demotion of the user.
     """
-    client = await get_client()
-    try:
+    async with get_telegram_client(context) as client:
         return await chat_management.demote_admin(client, group_id, user_id)
-    finally:
-        await client.disconnect()
 
 
 @mcp_server.tool()
-async def ban_user(chat_id: int, user_id: int) -> str:
+async def ban_user(
+    chat_id: int, user_id: int, context: Context
+) -> str:
     """
     Ban a user from a group or channel.
 
@@ -326,15 +299,14 @@ async def ban_user(chat_id: int, user_id: int) -> str:
     Returns:
         A string confirming the user has been banned.
     """
-    client = await get_client()
-    try:
+    async with get_telegram_client(context) as client:
         return await chat_management.ban_user(client, chat_id, user_id)
-    finally:
-        await client.disconnect()
 
 
 @mcp_server.tool()
-async def unban_user(chat_id: int, user_id: int) -> str:
+async def unban_user(
+    chat_id: int, user_id: int, context: Context
+) -> str:
     """
     Unban a user from a group or channel.
 
@@ -345,15 +317,14 @@ async def unban_user(chat_id: int, user_id: int) -> str:
     Returns:
         A string confirming the user has been unbanned.
     """
-    client = await get_client()
-    try:
+    async with get_telegram_client(context) as client:
         return await chat_management.unban_user(client, chat_id, user_id)
-    finally:
-        await client.disconnect()
 
 
 @mcp_server.tool()
-async def get_invite_link(chat_id: int) -> str:
+async def get_invite_link(
+    chat_id: int, context: Context
+) -> str:
     """
     Get the invite link for a group or channel.
 
@@ -363,15 +334,14 @@ async def get_invite_link(chat_id: int) -> str:
     Returns:
         A string containing the invite link.
     """
-    client = await get_client()
-    try:
+    async with get_telegram_client(context) as client:
         return await chat_management.get_invite_link(client, chat_id)
-    finally:
-        await client.disconnect()
 
 
 @mcp_server.tool()
-async def export_chat_invite(chat_id: int) -> str:
+async def export_chat_invite(
+    chat_id: int, context: Context
+) -> str:
     """
     Export a chat invite link.
 
@@ -381,15 +351,14 @@ async def export_chat_invite(chat_id: int) -> str:
     Returns:
         A string containing the exported invite link.
     """
-    client = await get_client()
-    try:
+    async with get_telegram_client(context) as client:
         return await chat_management.export_chat_invite(client, chat_id)
-    finally:
-        await client.disconnect()
 
 
 @mcp_server.tool()
-async def import_chat_invite(hash: str) -> str:
+async def import_chat_invite(
+    hash: str, context: Context
+) -> str:
     """
     Import a chat invite by hash.
 
@@ -399,15 +368,14 @@ async def import_chat_invite(hash: str) -> str:
     Returns:
         A string confirming that you have joined the chat.
     """
-    client = await get_client()
-    try:
+    async with get_telegram_client(context) as client:
         return await chat_management.import_chat_invite(client, hash)
-    finally:
-        await client.disconnect()
 
 
 @mcp_server.tool()
-async def join_chat_by_link(link: str) -> str:
+async def join_chat_by_link(
+    link: str, context: Context
+) -> str:
     """
     Join a chat by invite link.
 
@@ -417,16 +385,16 @@ async def join_chat_by_link(link: str) -> str:
     Returns:
         A string confirming that you have joined the chat.
     """
-    client = await get_client()
-    try:
+    async with get_telegram_client(context) as client:
         return await chat_management.join_chat_by_link(client, link)
-    finally:
-        await client.disconnect()
 
 
 @mcp_server.tool()
 async def get_messages(
-    chat_id: int, page: int = 1, page_size: int = 20
+    context: Context,
+    chat_id: int,
+    page: int = 1,
+    page_size: int = 20,
 ) -> str:
     """
     Get paginated messages from a specific chat.
@@ -439,17 +407,13 @@ async def get_messages(
     Returns:
         A string containing the list of messages.
     """
-    client = await get_client()
-    try:
-        return await messaging.get_messages(
-            client, chat_id, page, page_size
-        )
-    finally:
-        await client.disconnect()
+    async with get_telegram_client(context) as client:
+        return await messaging.get_messages(client, chat_id, page, page_size)
 
 
 @mcp_server.tool()
 async def list_messages(
+    context: Context,
     chat_id: int,
     limit: int = 20,
     search_query: str = None,
@@ -469,17 +433,16 @@ async def list_messages(
     Returns:
         A string containing the list of filtered messages.
     """
-    client = await get_client()
-    try:
+    async with get_telegram_client(context) as client:
         return await messaging.list_messages(
             client, chat_id, limit, search_query, from_date, to_date
         )
-    finally:
-        await client.disconnect()
 
 
 @mcp_server.tool()
-async def send_message(chat_id: int, message: str) -> str:
+async def send_message(
+    chat_id: int, message: str, context: Context
+) -> str:
     """
     Send a message to a specific chat.
 
@@ -490,15 +453,17 @@ async def send_message(chat_id: int, message: str) -> str:
     Returns:
         A string confirming the message was sent.
     """
-    client = await get_client()
-    try:
+    async with get_telegram_client(context) as client:
         return await messaging.send_message(client, chat_id, message)
-    finally:
-        await client.disconnect()
 
 
 @mcp_server.tool()
-async def reply_to_message(chat_id: int, message_id: int, text: str) -> str:
+async def reply_to_message(
+    chat_id: int,
+    message_id: int,
+    text: str,
+    context: Context,
+) -> str:
     """
     Reply to a specific message in a chat.
 
@@ -510,17 +475,17 @@ async def reply_to_message(chat_id: int, message_id: int, text: str) -> str:
     Returns:
         A string confirming the reply was sent.
     """
-    client = await get_client()
-    try:
-        return await messaging.reply_to_message(
-            client, chat_id, message_id, text
-        )
-    finally:
-        await client.disconnect()
+    async with get_telegram_client(context) as client:
+        return await messaging.reply_to_message(client, chat_id, message_id, text)
 
 
 @mcp_server.tool()
-async def edit_message(chat_id: int, message_id: int, new_text: str) -> str:
+async def edit_message(
+    context: Context,
+    chat_id: int,
+    message_id: int,
+    new_text: str,
+) -> str:
     """
     Edit a message you sent.
 
@@ -532,17 +497,16 @@ async def edit_message(chat_id: int, message_id: int, new_text: str) -> str:
     Returns:
         A string confirming the message was edited.
     """
-    client = await get_client()
-    try:
-        return await messaging.edit_message(
-            client, chat_id, message_id, new_text
-        )
-    finally:
-        await client.disconnect()
+    async with get_telegram_client(context) as client:
+        return await messaging.edit_message(client, chat_id, message_id, new_text)
 
 
 @mcp_server.tool()
-async def delete_message(chat_id: int, message_id: int) -> str:
+async def delete_message(
+    context: Context,
+    chat_id: int,
+    message_id: int,
+) -> str:
     """
     Delete a message by ID.
 
@@ -553,16 +517,16 @@ async def delete_message(chat_id: int, message_id: int) -> str:
     Returns:
         A string confirming the message was deleted.
     """
-    client = await get_client()
-    try:
+    async with get_telegram_client(context) as client:
         return await messaging.delete_message(client, chat_id, message_id)
-    finally:
-        await client.disconnect()
 
 
 @mcp_server.tool()
 async def forward_message(
-    from_chat_id: int, message_id: int, to_chat_id: int
+    context: Context,
+    from_chat_id: int,
+    message_id: int,
+    to_chat_id: int,
 ) -> str:
     """
     Forward a message from one chat to another.
@@ -575,17 +539,18 @@ async def forward_message(
     Returns:
         A string confirming the message was forwarded.
     """
-    client = await get_client()
-    try:
+    async with get_telegram_client(context) as client:
         return await messaging.forward_message(
             client, from_chat_id, message_id, to_chat_id
         )
-    finally:
-        await client.disconnect()
 
 
 @mcp_server.tool()
-async def pin_message(chat_id: int, message_id: int) -> str:
+async def pin_message(
+    context: Context,
+    chat_id: int,
+    message_id: int,
+) -> str:
     """
     Pin a message in a chat.
 
@@ -596,15 +561,16 @@ async def pin_message(chat_id: int, message_id: int) -> str:
     Returns:
         A string confirming the message was pinned.
     """
-    client = await get_client()
-    try:
+    async with get_telegram_client(context) as client:
         return await messaging.pin_message(client, chat_id, message_id)
-    finally:
-        await client.disconnect()
 
 
 @mcp_server.tool()
-async def unpin_message(chat_id: int, message_id: int) -> str:
+async def unpin_message(
+    context: Context,
+    chat_id: int,
+    message_id: int,
+) -> str:
     """
     Unpin a message in a chat.
 
@@ -615,15 +581,14 @@ async def unpin_message(chat_id: int, message_id: int) -> str:
     Returns:
         A string confirming the message was unpinned.
     """
-    client = await get_client()
-    try:
+    async with get_telegram_client(context) as client:
         return await messaging.unpin_message(client, chat_id, message_id)
-    finally:
-        await client.disconnect()
 
 
 @mcp_server.tool()
-async def mark_as_read(chat_id: int) -> str:
+async def mark_as_read(
+    chat_id: int, context: Context
+) -> str:
     """
     Mark all messages as read in a chat.
 
@@ -633,16 +598,16 @@ async def mark_as_read(chat_id: int) -> str:
     Returns:
         A string confirming the chat was marked as read.
     """
-    client = await get_client()
-    try:
+    async with get_telegram_client(context) as client:
         return await messaging.mark_as_read(client, chat_id)
-    finally:
-        await client.disconnect()
 
 
 @mcp_server.tool()
 async def get_message_context(
-    chat_id: int, message_id: int, context_size: int = 3
+    context: Context,
+    chat_id: int,
+    message_id: int,
+    context_size: int = 3,
 ) -> str:
     """
     Retrieve context around a specific message.
@@ -655,17 +620,18 @@ async def get_message_context(
     Returns:
         A string containing the message context.
     """
-    client = await get_client()
-    try:
+    async with get_telegram_client(context) as client:
         return await messaging.get_message_context(
             client, chat_id, message_id, context_size
         )
-    finally:
-        await client.disconnect()
 
 
 @mcp_server.tool()
-async def get_history(chat_id: int, limit: int = 100) -> str:
+async def get_history(
+    context: Context,
+    chat_id: int, 
+    limit: int = 100, 
+) -> str:
     """
     Get full chat history (up to limit).
 
@@ -676,15 +642,14 @@ async def get_history(chat_id: int, limit: int = 100) -> str:
     Returns:
         A string containing the chat history.
     """
-    client = await get_client()
-    try:
+    async with get_telegram_client(context) as client:
         return await messaging.get_history(client, chat_id, limit)
-    finally:
-        await client.disconnect()
 
 
 @mcp_server.tool()
-async def get_pinned_messages(chat_id: int) -> str:
+async def get_pinned_messages(
+    chat_id: int, context: Context
+) -> str:
     """
     Get all pinned messages in a chat.
 
@@ -694,15 +659,14 @@ async def get_pinned_messages(chat_id: int) -> str:
     Returns:
         A string containing the list of pinned messages.
     """
-    client = await get_client()
-    try:
+    async with get_telegram_client(context) as client:
         return await chat_management.get_pinned_messages(client, chat_id)
-    finally:
-        await client.disconnect()
 
 
 @mcp_server.tool()
-async def get_last_interaction(contact_id: int) -> str:
+async def get_last_interaction(
+    contact_id: int, context: Context
+) -> str:
     """
     Get the most recent message with a contact.
 
@@ -712,32 +676,26 @@ async def get_last_interaction(contact_id: int) -> str:
     Returns:
         A string containing the last few messages with the contact.
     """
-    client = await get_client()
-    try:
-        return await contact_management.get_last_interaction(
-            client, contact_id
-        )
-    finally:
-        await client.disconnect()
+    async with get_telegram_client(context) as client:
+        return await contact_management.get_last_interaction(client, contact_id)
 
 
 @mcp_server.tool()
-async def list_contacts() -> str:
+async def list_contacts(context: Context) -> str:
     """
     List all contacts in your Telegram account.
 
     Returns:
         A string containing the list of contacts.
     """
-    client = await get_client()
-    try:
+    async with get_telegram_client(context) as client:
         return await contact_management.list_contacts(client)
-    finally:
-        await client.disconnect()
 
 
 @mcp_server.tool()
-async def search_contacts(query: str) -> str:
+async def search_contacts(
+    query: str, context: Context
+) -> str:
     """
     Search for contacts by name, username, or phone number.
 
@@ -747,15 +705,17 @@ async def search_contacts(query: str) -> str:
     Returns:
         A string containing the list of matching contacts.
     """
-    client = await get_client()
-    try:
+    async with get_telegram_client(context) as client:
         return await contact_management.search_contacts(client, query)
-    finally:
-        await client.disconnect()
 
 
 @mcp_server.tool()
-async def add_contact(phone: str, first_name: str, last_name: str = "") -> str:
+async def add_contact(
+    context: Context,
+    phone: str,
+    first_name: str,
+    last_name: str = "",
+) -> str:
     """
     Add a new contact to your Telegram account.
 
@@ -767,17 +727,14 @@ async def add_contact(phone: str, first_name: str, last_name: str = "") -> str:
     Returns:
         A string confirming the contact was added.
     """
-    client = await get_client()
-    try:
-        return await contact_management.add_contact(
-            client, phone, first_name, last_name
-        )
-    finally:
-        await client.disconnect()
+    async with get_telegram_client(context) as client:
+        return await contact_management.add_contact(client, phone, first_name, last_name)
 
 
 @mcp_server.tool()
-async def delete_contact(user_id: int) -> str:
+async def delete_contact(
+    user_id: int, context: Context
+) -> str:
     """
     Delete a contact by user ID.
 
@@ -787,15 +744,14 @@ async def delete_contact(user_id: int) -> str:
     Returns:
         A string confirming the contact was deleted.
     """
-    client = await get_client()
-    try:
+    async with get_telegram_client(context) as client:
         return await contact_management.delete_contact(client, user_id)
-    finally:
-        await client.disconnect()
 
 
 @mcp_server.tool()
-async def block_user(user_id: int) -> str:
+async def block_user(
+    user_id: int, context: Context
+) -> str:
     """
     Block a user by user ID.
 
@@ -805,15 +761,14 @@ async def block_user(user_id: int) -> str:
     Returns:
         A string confirming the user was blocked.
     """
-    client = await get_client()
-    try:
+    async with get_telegram_client(context) as client:
         return await contact_management.block_user(client, user_id)
-    finally:
-        await client.disconnect()
 
 
 @mcp_server.tool()
-async def unblock_user(user_id: int) -> str:
+async def unblock_user(
+    user_id: int, context: Context
+) -> str:
     """
     Unblock a user by user ID.
 
@@ -823,15 +778,14 @@ async def unblock_user(user_id: int) -> str:
     Returns:
         A string confirming the user was unblocked.
     """
-    client = await get_client()
-    try:
+    async with get_telegram_client(context) as client:
         return await contact_management.unblock_user(client, user_id)
-    finally:
-        await client.disconnect()
 
 
 @mcp_server.tool()
-async def import_contacts(contacts: list) -> str:
+async def import_contacts(
+    contacts: list, context: Context
+) -> str:
     """
     Import a list of contacts. Each contact should be a dict with phone, first_name, last_name.
 
@@ -841,60 +795,52 @@ async def import_contacts(contacts: list) -> str:
     Returns:
         A string confirming how many contacts were imported.
     """
-    client = await get_client()
-    try:
+    async with get_telegram_client(context) as client:
         return await contact_management.import_contacts(client, contacts)
-    finally:
-        await client.disconnect()
 
 
 @mcp_server.tool()
-async def export_contacts() -> str:
+async def export_contacts(context: Context) -> str:
     """
     Export all contacts as a JSON string.
 
     Returns:
         A JSON string of all contacts.
     """
-    client = await get_client()
-    try:
+    async with get_telegram_client(context) as client:
         return await contact_management.export_contacts(client)
-    finally:
-        await client.disconnect()
 
 
 @mcp_server.tool()
-async def get_blocked_users() -> str:
+async def get_blocked_users(
+    context: Context,
+) -> str:
     """
     Get a list of blocked users.
 
     Returns:
         A JSON string of all blocked users.
     """
-    client = await get_client()
-    try:
+    async with get_telegram_client(context) as client:
         return await contact_management.get_blocked_users(client)
-    finally:
-        await client.disconnect()
 
 
 @mcp_server.tool()
-async def get_contact_ids() -> str:
+async def get_contact_ids(context: Context) -> str:
     """
     Get all contact IDs in your Telegram account.
 
     Returns:
         A string containing a comma-separated list of contact IDs.
     """
-    client = await get_client()
-    try:
+    async with get_telegram_client(context) as client:
         return await contact_management.get_contact_ids(client)
-    finally:
-        await client.disconnect()
 
 
 @mcp_server.tool()
-async def get_direct_chat_by_contact(contact_query: str) -> str:
+async def get_direct_chat_by_contact(
+    contact_query: str, context: Context
+) -> str:
     """
     Find a direct chat with a specific contact by name, username, or phone.
 
@@ -904,17 +850,14 @@ async def get_direct_chat_by_contact(contact_query: str) -> str:
     Returns:
         A string containing information about the direct chat if found.
     """
-    client = await get_client()
-    try:
-        return await contact_management.get_direct_chat_by_contact(
-            client, contact_query
-        )
-    finally:
-        await client.disconnect()
+    async with get_telegram_client(context) as client:
+        return await contact_management.get_direct_chat_by_contact(client, contact_query)
 
 
 @mcp_server.tool()
-async def get_contact_chats(contact_id: int) -> str:
+async def get_contact_chats(
+    contact_id: int, context: Context
+) -> str:
     """
     List all chats involving a specific contact.
 
@@ -924,31 +867,28 @@ async def get_contact_chats(contact_id: int) -> str:
     Returns:
         A string listing all chats involving the contact.
     """
-    client = await get_client()
-    try:
+    async with get_telegram_client(context) as client:
         return await contact_management.get_contact_chats(client, contact_id)
-    finally:
-        await client.disconnect()
 
 
 @mcp_server.tool()
-async def get_me() -> str:
+async def get_me(context: Context) -> str:
     """
     Get your own user information.
 
     Returns:
         A JSON string with your user information.
     """
-    client = await get_client()
-    try:
+    async with get_telegram_client(context) as client:
         return await user_profile.get_me(client)
-    finally:
-        await client.disconnect()
 
 
 @mcp_server.tool()
 async def update_profile(
-    first_name: str = None, last_name: str = None, about: str = None
+    context: Context,
+    first_name: str = None,
+    last_name: str = None,
+    about: str = None,
 ) -> str:
     """
     Update your profile information (name, bio).
@@ -961,32 +901,30 @@ async def update_profile(
     Returns:
         A string confirming the profile was updated.
     """
-    client = await get_client()
-    try:
-        return await user_profile.update_profile(
-            client, first_name, last_name, about
-        )
-    finally:
-        await client.disconnect()
+    async with get_telegram_client(context) as client:
+        return await user_profile.update_profile(client, first_name, last_name, about)
 
 
 @mcp_server.tool()
-async def delete_profile_photo() -> str:
+async def delete_profile_photo(
+    context: Context,
+) -> str:
     """
     Delete your current profile photo.
 
     Returns:
         A string confirming the photo was deleted.
     """
-    client = await get_client()
-    try:
+    async with get_telegram_client(context) as client:
         return await user_profile.delete_profile_photo(client)
-    finally:
-        await client.disconnect()
 
 
 @mcp_server.tool()
-async def get_user_photos(user_id: int, limit: int = 10) -> str:
+async def get_user_photos(
+    context: Context,
+    user_id: int, 
+    limit: int = 10, 
+) -> str:
     """
     Get a user's profile photos.
 
@@ -997,15 +935,14 @@ async def get_user_photos(user_id: int, limit: int = 10) -> str:
     Returns:
         A JSON string containing a list of photo IDs.
     """
-    client = await get_client()
-    try:
+    async with get_telegram_client(context) as client:
         return await user_profile.get_user_photos(client, user_id, limit)
-    finally:
-        await client.disconnect()
 
 
 @mcp_server.tool()
-async def get_user_status(user_id: int) -> str:
+async def get_user_status(
+    user_id: int, context: Context
+) -> str:
     """
     Get a user's online status.
 
@@ -1015,15 +952,16 @@ async def get_user_status(user_id: int) -> str:
     Returns:
         A string describing the user's status.
     """
-    client = await get_client()
-    try:
+    async with get_telegram_client(context) as client:
         return await user_profile.get_user_status(client, user_id)
-    finally:
-        await client.disconnect()
 
 
 @mcp_server.tool()
-async def get_media_info(chat_id: int, message_id: int) -> str:
+async def get_media_info(
+    context: Context,
+    chat_id: int,
+    message_id: int,
+) -> str:
     """
     Get info about media in a message.
 
@@ -1034,15 +972,14 @@ async def get_media_info(chat_id: int, message_id: int) -> str:
     Returns:
         A string representation of the media object.
     """
-    client = await get_client()
-    try:
+    async with get_telegram_client(context) as client:
         return await media.get_media_info(client, chat_id, message_id)
-    finally:
-        await client.disconnect()
 
 
 @mcp_server.tool()
-async def search_public_chats(query: str) -> str:
+async def search_public_chats(
+    query: str, context: Context
+) -> str:
     """
     Search for public chats, channels, or bots by username or title.
 
@@ -1052,15 +989,17 @@ async def search_public_chats(query: str) -> str:
     Returns:
         A JSON string of matching chats/users.
     """
-    client = await get_client()
-    try:
+    async with get_telegram_client(context) as client:
         return await search_discovery.search_public_chats(client, query)
-    finally:
-        await client.disconnect()
 
 
 @mcp_server.tool()
-async def search_messages(chat_id: int, query: str, limit: int = 20) -> str:
+async def search_messages(
+    context: Context,
+    chat_id: int,
+    query: str,
+    limit: int = 20,
+) -> str:
     """
     Search for messages in a chat by text.
 
@@ -1072,17 +1011,14 @@ async def search_messages(chat_id: int, query: str, limit: int = 20) -> str:
     Returns:
         A string containing the matching messages.
     """
-    client = await get_client()
-    try:
-        return await search_discovery.search_messages(
-            client, chat_id, query, limit
-        )
-    finally:
-        await client.disconnect()
+    async with get_telegram_client(context) as client:
+        return await search_discovery.search_messages(client, chat_id, query, limit)
 
 
 @mcp_server.tool()
-async def resolve_username(username: str) -> str:
+async def resolve_username(
+    username: str, context: Context
+) -> str:
     """
     Resolve a username to a user or chat ID.
 
@@ -1092,30 +1028,28 @@ async def resolve_username(username: str) -> str:
     Returns:
         A string containing information about the resolved entity.
     """
-    client = await get_client()
-    try:
+    async with get_telegram_client(context) as client:
         return await search_discovery.resolve_username(client, username)
-    finally:
-        await client.disconnect()
 
 
 @mcp_server.tool()
-async def get_sticker_sets() -> str:
+async def get_sticker_sets(
+    context: Context,
+) -> str:
     """
     Get all your sticker sets.
 
     Returns:
         A JSON string containing a list of your sticker set titles.
     """
-    client = await get_client()
-    try:
+    async with get_telegram_client(context) as client:
         return await stickers_gifs_bots.get_sticker_sets(client)
-    finally:
-        await client.disconnect()
 
 
 @mcp_server.tool()
-async def get_bot_info(bot_username: str) -> str:
+async def get_bot_info(
+    bot_username: str, context: Context
+) -> str:
     """
     Get information about a bot by username.
 
@@ -1125,15 +1059,16 @@ async def get_bot_info(bot_username: str) -> str:
     Returns:
         A JSON string with detailed information about the bot.
     """
-    client = await get_client()
-    try:
+    async with get_telegram_client(context) as client:
         return await stickers_gifs_bots.get_bot_info(client, bot_username)
-    finally:
-        await client.disconnect()
 
 
 @mcp_server.tool()
-async def set_bot_commands(bot_username: str, commands: list) -> str:
+async def set_bot_commands(
+    context: Context,
+    bot_username: str,
+    commands: list,
+) -> str:
     """
     Set bot commands for a bot you own (bot accounts only).
 
@@ -1144,33 +1079,30 @@ async def set_bot_commands(bot_username: str, commands: list) -> str:
     Returns:
         A string confirming the commands were set.
     """
-    client = await get_client()
-    try:
-        return await stickers_gifs_bots.set_bot_commands(
-            client, bot_username, commands
-        )
-    finally:
-        await client.disconnect()
+    async with get_telegram_client(context) as client:
+        return await stickers_gifs_bots.set_bot_commands(client, bot_username, commands)
 
 
 @mcp_server.tool()
-async def get_privacy_settings() -> str:
+async def get_privacy_settings(
+    context: Context,
+) -> str:
     """
     Get your privacy settings for last seen status.
 
     Returns:
         A string representation of your privacy settings.
     """
-    client = await get_client()
-    try:
+    async with get_telegram_client(context) as client:
         return await privacy_settings_misc.get_privacy_settings(client)
-    finally:
-        await client.disconnect()
 
 
 @mcp_server.tool()
 async def set_privacy_settings(
-    key: str, allow_users: list = None, disallow_users: list = None
+    context: Context,
+    key: str,
+    allow_users: list = None,
+    disallow_users: list = None,
 ) -> str:
     """
     Set privacy settings (e.g., last seen, phone, etc.).
@@ -1183,17 +1115,16 @@ async def set_privacy_settings(
     Returns:
         A string confirming the settings were updated.
     """
-    client = await get_client()
-    try:
+    async with get_telegram_client(context) as client:
         return await privacy_settings_misc.set_privacy_settings(
             client, key, allow_users, disallow_users
         )
-    finally:
-        await client.disconnect()
 
 
 @mcp_server.tool()
-async def mute_chat(chat_id: int) -> str:
+async def mute_chat(
+    chat_id: int, context: Context
+) -> str:
     """
     Mute notifications for a chat.
 
@@ -1203,15 +1134,14 @@ async def mute_chat(chat_id: int) -> str:
     Returns:
         A string confirming the chat was muted.
     """
-    client = await get_client()
-    try:
+    async with get_telegram_client(context) as client:
         return await privacy_settings_misc.mute_chat(client, chat_id)
-    finally:
-        await client.disconnect()
 
 
 @mcp_server.tool()
-async def unmute_chat(chat_id: int) -> str:
+async def unmute_chat(
+    chat_id: int, context: Context
+) -> str:
     """
     Unmute notifications for a chat.
 
@@ -1221,15 +1151,14 @@ async def unmute_chat(chat_id: int) -> str:
     Returns:
         A string confirming the chat was unmuted.
     """
-    client = await get_client()
-    try:
+    async with get_telegram_client(context) as client:
         return await privacy_settings_misc.unmute_chat(client, chat_id)
-    finally:
-        await client.disconnect()
 
 
 @mcp_server.tool()
-async def archive_chat(chat_id: int) -> str:
+async def archive_chat(
+    chat_id: int, context: Context
+) -> str:
     """
     Archive a chat.
 
@@ -1239,15 +1168,14 @@ async def archive_chat(chat_id: int) -> str:
     Returns:
         A string confirming the chat was archived.
     """
-    client = await get_client()
-    try:
+    async with get_telegram_client(context) as client:
         return await privacy_settings_misc.archive_chat(client, chat_id)
-    finally:
-        await client.disconnect()
 
 
 @mcp_server.tool()
-async def unarchive_chat(chat_id: int) -> str:
+async def unarchive_chat(
+    chat_id: int, context: Context
+) -> str:
     """
     Unarchive a chat.
 
@@ -1257,8 +1185,5 @@ async def unarchive_chat(chat_id: int) -> str:
     Returns:
         A string confirming the chat was unarchived.
     """
-    client = await get_client()
-    try:
+    async with get_telegram_client(context) as client:
         return await privacy_settings_misc.unarchive_chat(client, chat_id)
-    finally:
-        await client.disconnect()
