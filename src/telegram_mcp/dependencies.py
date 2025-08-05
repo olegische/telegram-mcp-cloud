@@ -40,7 +40,8 @@ def get_config(context: Context) -> ServiceConfig:
     """Get ServiceConfig object for the current request.
 
     Loads ServiceConfig from the environment and overrides credentials with
-    values from request headers if they are present.
+    values from request headers if they are present. Session names cannot be
+    passed via headers and are only supported for local configuration.
 
     Args:
         context: MCP server context
@@ -49,40 +50,41 @@ def get_config(context: Context) -> ServiceConfig:
         ServiceConfig object
 
     Raises:
-        ValueError: If partial or conflicting credentials are provided in headers.
+        ValueError: If partial or forbidden credentials are provided in headers.
     """
     config = ServiceConfig()
     headers = get_authentication_headers(context)
 
-    api_id = headers.get("x-telegram-api-id")
-    api_hash = headers.get("x-telegram-api-hash")
-    session_string = headers.get("x-telegram-session-string")
-    session_name = headers.get("x-telegram-session-name")
-
-    # If no credential headers are present, return the default config
-    if not any([api_id, api_hash, session_string, session_name]):
+    # If no headers are present (e.g., stdio mode), use default config.
+    if not headers:
         return config
 
-    # If some but not all required headers are present, it's an error
-    if not all([api_id, api_hash]):
-        raise ValueError("Both X-Telegram-API-ID and X-Telegram-API-Hash are required when overriding credentials.")
+    if headers.get("x-telegram-session-name"):
+        raise ValueError(
+            "Passing session name via headers is not supported. "
+            "Please use a session string (X-Telegram-Session-String)."
+        )
 
-    if not (session_string or session_name):
-        raise ValueError("Either X-Telegram-Session-String or X-Telegram-Session-Name is required for override.")
-    
-    if session_string and session_name:
-        raise ValueError("Provide either X-Telegram-Session-String or X-Telegram-Session-Name, not both.")
+    header_creds = {
+        "api_id": headers.get("x-telegram-api-id"),
+        "api_hash": headers.get("x-telegram-api-hash"),
+        "session_string": headers.get("x-telegram-session-string"),
+    }
 
-    logger.debug("Overriding config with credentials from headers.")
-    config.TELEGRAM_API_ID = int(api_id)
-    config.TELEGRAM_API_HASH = api_hash
-    
-    if session_string:
-        config.SESSION_STRING = session_string
+    # If any credential headers are present, all must be.
+    if any(header_creds.values()):
+        missing_keys = [k for k, v in header_creds.items() if v is None]
+        if missing_keys:
+            raise ValueError(
+                f"Missing required Telegram credential headers: {', '.join(missing_keys)}"
+            )
+
+        logger.debug("Overriding config with credentials from headers.")
+        config.TELEGRAM_API_ID = int(header_creds["api_id"])
+        config.TELEGRAM_API_HASH = header_creds["api_hash"]
+        config.SESSION_STRING = header_creds["session_string"]
+        # Ensure session name from env is ignored when string is from header
         config.TELEGRAM_SESSION_NAME = None
-    else:
-        config.TELEGRAM_SESSION_NAME = session_name
-        config.SESSION_STRING = None
 
     return config
 
