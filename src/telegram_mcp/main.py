@@ -29,7 +29,7 @@ async def run_server() -> None:
         sys.exit(1)
 
     from .server import mcp_server
-    from .config import get_config
+    from .dependencies import get_config
 
     server_config = get_config()
     logger = logging.getLogger(__name__)
