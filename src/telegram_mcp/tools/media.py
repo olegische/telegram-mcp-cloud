@@ -4,7 +4,7 @@ import mimetypes
 
 from telethon import TelegramClient
 
-from ..config import log_and_format_error
+from ..utils import log_and_format_error
 
 
 logger = logging.getLogger("telegram_mcp")

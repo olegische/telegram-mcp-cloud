@@ -1,7 +1,7 @@
 """MCP dependencies for dependency injection."""
 import logging
 import contextlib
-from typing import Optional, AsyncGenerator
+from typing import AsyncGenerator
 
 from mcp.server.fastmcp import Context
 from telethon import TelegramClient

@@ -1,6 +1,5 @@
 import logging
 from mcp.server.fastmcp import FastMCP, Context
-from telethon import TelegramClient
 
 # Import tool implementation functions
 from .tools import (

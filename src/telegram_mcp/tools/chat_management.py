@@ -17,7 +17,7 @@ from telethon.tl.types import (
 )
 import telethon.errors.rpcerrorlist
 
-from ..config import json_serializer, log_and_format_error
+from ..utils import json_serializer, log_and_format_error
 
 
 logger = logging.getLogger("telegram_mcp")

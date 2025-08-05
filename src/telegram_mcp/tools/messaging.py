@@ -4,7 +4,7 @@ from typing import Dict, Any
 
 from telethon import TelegramClient, utils
 
-from ..config import log_and_format_error
+from ..utils import log_and_format_error
 
 
 logger = logging.getLogger("telegram_mcp")
