@@ -5,7 +5,7 @@ package-mode = false
 
 [project]
 name = "telegram-mcp-multitenant"
-version = "0.1.0"
+version = "0.3.0"
 description = "Multitenant Telegram integration for Claude via the Model Context Protocol"
 readme = "README.md"
 authors = [

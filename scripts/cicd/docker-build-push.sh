@@ -65,7 +65,8 @@ main() {
   build_and_push "Root" \
     "docker-compose.build.yml" \
     "docker-compose.dev.yml" \
-    ".env"
+    ".env" \
+    "false"
 
 }
 

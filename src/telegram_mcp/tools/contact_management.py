@@ -4,7 +4,7 @@ import logging
 from telethon import TelegramClient, functions
 from telethon.tl.types import User, InputPhoneContact
 
-from ..config import format_entity, log_and_format_error
+from ..utils import format_entity, log_and_format_error
 
 logger = logging.getLogger("telegram_mcp")
 
