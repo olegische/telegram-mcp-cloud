@@ -12,8 +12,7 @@ from .tools import (
     stickers_gifs_bots,
     privacy_settings_misc,
 )
-from .config import ServiceConfig
-from .dependencies import get_telegram_client
+from .dependencies import get_config, get_telegram_client
 
 logger = logging.getLogger("telegram_mcp")
 
@@ -25,7 +24,7 @@ def build_server() -> FastMCP:
         A configured FastMCP instance.
     """
     logger.info("Initializing FastMCP server")
-    config = ServiceConfig()
+    config = get_config()
 
     if config.MCP_TRANSPORT == "stdio":
         return FastMCP("telegram")

@@ -36,7 +36,7 @@ def get_authentication_headers(context: Context) -> dict[str, str]:
     return {k.lower(): v for k, v in headers.items()}
 
 
-def get_config(context: Context) -> ServiceConfig:
+def get_config(context: Context = None) -> ServiceConfig:
     """Get ServiceConfig object for the current request.
 
     Loads ServiceConfig from the environment and overrides credentials with
@@ -53,6 +53,9 @@ def get_config(context: Context) -> ServiceConfig:
         ValueError: If partial or forbidden credentials are provided in headers.
     """
     config = ServiceConfig()
+    if not context:
+        return config
+        
     headers = get_authentication_headers(context)
 
     # If no headers are present (e.g., stdio mode), use default config.
