@@ -3,13 +3,12 @@ requires = ["setuptools>=42", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "telegram-mcp"
+name = "telegram-mcp-cloud"
 version = "2.0.1"
-description = "Telegram integration for Claude via the Model Context Protocol"
+description = "Codex-compatible Telegram MCP server with cloud-ready transports"
 readme = "README.md"
 authors = [
-    {name = "chigwell"},
-    {name = "l1v0n1"}
+    {name = "olegische"}
 ]
 license = {text = "Apache-2.0"}
 classifiers = [
@@ -25,7 +24,7 @@ requires-python = ">=3.10"
 dependencies = [
     "dotenv>=0.9.9",
     "httpx>=0.28.1",
-    "mcp[cli]>=1.8.0",
+    "mcp>=1.27,<1.28",
     "nest-asyncio>=1.6.0",
     "python-dotenv>=1.1.0",
     "python-json-logger>=3.3.0",
@@ -40,14 +39,15 @@ proxy = [
 ]
 
 [project.urls]
-"Homepage" = "https://github.com/chigwell/telegram-mcp"
-"Bug Tracker" = "https://github.com/chigwell/telegram-mcp/issues"
+"Homepage" = "https://github.com/olegische/telegram-mcp-cloud"
+"Bug Tracker" = "https://github.com/olegische/telegram-mcp-cloud/issues"
 
 [tool.setuptools]
 py-modules = ["main", "sanitize", "session_string_generator"]
 packages = ["telegram_mcp", "telegram_mcp.tools"]
 
 [project.scripts]
+telegram-mcp-cloud = "main:main"
 telegram-mcp = "main:main"
 telegram-mcp-generate-session = "session_string_generator:main"
 
